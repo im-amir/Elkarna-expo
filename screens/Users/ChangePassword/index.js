@@ -1,100 +1,223 @@
 import React, { Component } from "react";
-import { Container, View, Text, Content } from "native-base";
-import { Image, Platform, StatusBar, StyleSheet } from "react-native";
-import { TextField } from "react-native-materialui-textfield";
+import { Container, View, Text, Content, Button } from "native-base";
+import { Image, StyleSheet, AsyncStorage } from "react-native";
+
+import { TextField } from "react-native-material-textfield";
 import Header from "../../../components/Header";
 import Logo from "../../../assets/logo-dark.png";
 import axios from "axios";
-import { AsyncStorage } from "react-native";
-import { Button } from "react-native-paper";
+import { base_url } from "../../../services";
+import Loading from "../../../components/Loading";
+import Toast from "react-native-tiny-toast";
+const md5 = require("md5");
 
 class ChangePassword extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      name: null,
       passwordConfirm: null,
       existingPass: null,
       userType: null,
       user: null,
-      password: null
+      password: null,
+      currentUser: null,
+      loading: false,
+      width: 180
     };
   }
 
   componentDidMount() {
+    this.setState({ loading: true });
     AsyncStorage.getItem("token").then(res => {
       if (!res) {
         this.props.navigation.navigate("Login");
       }
+      this.loadData(res);
     });
   }
-  handleChangePassword = () => {
-    // this.props.navigation.navigate("Main");
-    const base_url = "http://www.elkarna.com/Elkarna";
-    const data = {
-      libelle: "Account libelle",
-      numCompte: "",
-      numPersonne: "",
-      adresse: "",
-      tel: "",
-      type: "CCHARGE",
-      message: ""
-    };
+  loadData = res => {
     axios
-      .post(base_url + "/account/saveAccount", data, {
-        method: "verb",
+      .get(base_url + "/operation/currentUser", {
         headers: {
-          "X-Auth-Token": "",
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          Authorization: res
         }
       })
       .then(res => {
-        console.log("Res : \n\n\n", res);
+        this.setState({ currentUser: res.data });
+        this.setState({ loading: false });
       })
-      .catch(err => console.log("Error is", err));
+      .catch(err => {
+        this.setState({ loading: false });
+        if (err.response.status === 401) {
+          Toast.show("Session expired. Please login again", {
+            containerStyle: {
+              backgroundColor: "#F4F4F2",
+              borderRadius: 30,
+              paddingVertical: 15,
+              paddingHorizontal: 20
+            },
+            textStyle: { color: "black" }
+          });
+          this.props.navigation.navigate("Login");
+        } else {
+          if (err.response.status === 500) {
+            Toast.show("Session expired. Please login again", {
+              containerStyle: {
+                backgroundColor: "#F4F4F2",
+                borderRadius: 30,
+                paddingVertical: 15,
+                paddingHorizontal: 20
+              },
+              textStyle: { color: "black" }
+            });
+            this.props.navigation.navigate("Login");
+          } else {
+            Toast.show("An error occurred loading data. Click ok to retry", {
+              containerStyle: {
+                backgroundColor: "#F4F4F2",
+                borderRadius: 30,
+                paddingVertical: 15,
+                paddingHorizontal: 20
+              },
+              textStyle: { color: "black" }
+            });
+          }
+        }
+      });
+  };
+  handleChangePassword = () => {
+    this.setState({ loading: true });
+    AsyncStorage.getItem("token").then(res => {
+      if (!res) {
+        this.props.navigation.navigate("Login");
+      }
+      const {
+        password,
+        existingPass,
+        passwordConfirm,
+        ...currentUser
+      } = this.state;
+      const data = {
+        currentPassword: md5(existingPass),
+        newPassword: md5(password),
+        password: passwordConfirm,
+        ...currentUser
+      };
+      axios
+        .post(base_url + "/operation/modifyPass", data, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: res
+          }
+        })
+        .then(res => {
+          this.setState({ loading: false });
+          if (res.message) {
+            Toast.show(res.message, {
+              containerStyle: {
+                backgroundColor: "#F4F4F2",
+                borderRadius: 30,
+                paddingVertical: 15,
+                paddingHorizontal: 20
+              },
+              textStyle: { color: "black" }
+            });
+          } else {
+            Toast.showSuccess("Successfully updated password");
+          }
+        })
+        .catch(err => {
+          this.setState({ loading: false });
+          if (err.response.status === 401) {
+            Toast.show("Session expired. Please login again", {
+              containerStyle: {
+                backgroundColor: "#F4F4F2",
+                borderRadius: 30,
+                paddingVertical: 15,
+                paddingHorizontal: 20
+              },
+              textStyle: { color: "black" }
+            });
+            this.props.navigation.navigate("Login");
+          } else {
+            Toast.show("An error occurred loading data. Click ok to retry", {
+              containerStyle: {
+                backgroundColor: "#F4F4F2",
+                borderRadius: 30,
+                paddingVertical: 15,
+                paddingHorizontal: 20
+              },
+              textStyle: { color: "black" }
+            });
+          }
+        });
+    });
   };
 
   render() {
     const { navigation } = this.props;
     const {
-      name,
-      user,
-      userType,
       existingPass,
       passwordConfirm,
-      password
+      password,
+      currentUser,
+      width
     } = this.state;
+    const rtlText = {
+      textAlign: "right",
+      writingDirection: "rtl"
+    };
     return (
-      <Container
-        fluid
-        style={{
-          paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0
-        }}
-      >
-        <Header navigation={navigation} backPath="Home" />
+      <Container fluid>
+        <Header navigation={navigation} backPath="Home" menu={true} />
         <Content style={styles.content}>
           <View style={styles.loginCard}>
             <Image source={Logo} />
             <Text style={{ fontSize: 24 }}>تسجيل</Text>
-            <View style={styles.textField}>
+            <View
+              style={styles.textField}
+              onLayout={event => {
+                const { width } = event.nativeEvent.layout;
+                this.setState({ width });
+              }}
+            >
               <TextField
                 label="اسم"
-                value={name}
-                onChangeText={value => this.setState({ name: value })}
+                value={currentUser && currentUser.name}
+                onChangeText={value => {
+                  let currentUserCopy = { ...currentUser };
+                  currentUserCopy.name = value;
+                  this.setState({ currentUser: currentUserCopy });
+                }}
+                style={[rtlText]}
+                labelOffset={{ x0: width - 30, x1: width + 40 }}
               />
             </View>
             <View style={styles.textField}>
               <TextField
                 label="المستخدم"
-                value={user}
-                onChangeText={value => this.setState({ user: value })}
+                value={currentUser && currentUser.userLogin}
+                onChangeText={value => {
+                  let currentUserCopy = { ...currentUser };
+                  currentUserCopy.userLogin = value;
+                  this.setState({ currentUser: currentUserCopy });
+                }}
+                style={[rtlText]}
+                labelOffset={{ x0: width - 50, x1: width + 20 }}
               />
             </View>
             <View style={styles.textField}>
               <TextField
                 label="نوعية المستخدم"
-                value={userType}
-                onChangeText={value => this.setState({ userType: value })}
+                value={currentUser && currentUser.primaryRole}
+                onChangeText={value => {
+                  let currentUserCopy = { ...currentUser };
+                  currentUserCopy.primaryRole = value;
+                  this.setState({ currentUser: currentUserCopy });
+                }}
+                style={[rtlText]}
+                labelOffset={{ x0: width - 70, x1: width + 10 }}
               />
             </View>
             <View style={styles.textField}>
@@ -102,6 +225,8 @@ class ChangePassword extends Component {
                 label="كلمة السرالحالية"
                 value={existingPass}
                 onChangeText={value => this.setState({ existingPass: value })}
+                style={[rtlText]}
+                labelOffset={{ x0: width - 80, x1: width }}
               />
             </View>
             <View style={styles.textField}>
@@ -110,6 +235,8 @@ class ChangePassword extends Component {
                 secureTextEntry
                 value={password}
                 onChangeText={value => this.setState({ password: value })}
+                style={[rtlText]}
+                labelOffset={{ x0: width - 50, x1: width + 20 }}
               />
             </View>
             <View style={styles.textField}>
@@ -120,32 +247,40 @@ class ChangePassword extends Component {
                 onChangeText={value =>
                   this.setState({ passwordConfirm: value })
                 }
+                style={[rtlText]}
+                labelOffset={{ x0: width - 80, x1: width }}
               />
             </View>
             <Button
-              style={styles.btnWrapper}
-              onPress={() => navigation.navigate("Home")}
-              // onPress={this.handleChangePassword}
-            >
-              <Text style={styles.text}>إلغاء</Text>
-            </Button>
-            <Button
-              style={styles.btnWrapper}
-              onPress={() => navigation.navigate("Home")}
+              style={[styles.btnWrapper, { marginTop: 30 }]}
+              onPress={this.handleChangePassword}
               disabled={
                 !(
-                  name &&
-                  user &&
-                  userType &&
+                  currentUser &&
+                  currentUser.name &&
+                  currentUser &&
+                  currentUser.primaryRole &&
+                  currentUser &&
+                  currentUser.userLogin &&
                   existingPass &&
                   password &&
                   passwordConfirm
                 )
               }
             >
-              <Text style={{ textDecorationLine: "underline" }}>حفظ</Text>
+              <Text style={styles.text}>حفظ</Text>
+            </Button>
+            <Button
+              style={[
+                styles.btnWrapper,
+                { marginTop: 10, backgroundColor: "#F44336" }
+              ]}
+              onPress={() => this.props.navigation.navigate("Home")}
+            >
+              <Text style={styles.text}>إلغاء</Text>
             </Button>
           </View>
+          {this.state.loading && <Loading />}
         </Content>
       </Container>
     );
@@ -173,8 +308,7 @@ const styles = StyleSheet.create({
   btnWrapper: {
     width: "100%",
     borderRadius: 5,
-    marginTop: 60,
-    backgroundColor: "#3F51B5"
+    marginTop: 60
   },
   text: { flex: 1, textAlign: "center" }
 });

@@ -6,55 +6,169 @@ import {
   Text,
   Picker,
   Item,
-  DatePicker
+  DatePicker,
+  Button
 } from "native-base";
-import { Button } from "react-native-paper";
 import MainHeader from "../../../components/Header";
-import { TextField } from "react-native-materialui-textfield";
-import { Platform, StatusBar, StyleSheet } from "react-native";
-import { AsyncStorage } from "react-native";
+import { TextField } from "react-native-material-textfield";
+import { StyleSheet, AsyncStorage } from "react-native";
+import axios from "axios";
+import { base_url } from "../../../services";
+import Loading from "../../../components/Loading";
+import Toast from "react-native-tiny-toast";
 
 class RecordingSporadicOperation extends Component {
   constructor(props) {
     super(props);
     this.state = {
       date: new Date(),
-      accountType: null,
-      from: null,
-      to: null,
-      amount: null,
-      account: null,
-      notice: null,
-      accountMenuVisible: false
+      montant: null,
+      numCompteFrom: null,
+      numCompteTo: null,
+      name: "",
+      remarque: null,
+      accounts: null,
+      loading: false
     };
   }
   componentDidMount() {
+    this.setState({ loading: true });
     AsyncStorage.getItem("token").then(res => {
       if (!res) {
         this.props.navigation.navigate("Login");
       }
+      this.loadData(res);
     });
   }
-  onChangeAccountType = value => {
-    this.setState({
-      accountType: value
+  loadData = res => {
+    axios
+      .get(base_url + "/account/listAllAccountsLigth", {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: res
+        }
+      })
+      .then(res => {
+        this.setState({ accounts: res.data });
+        this.setState({ loading: false });
+      })
+      .catch(err => {
+        this.setState({ loading: false });
+        if (err.response.status === 401) {
+          Toast.show("Session expired. Please login again", {
+            containerStyle: {
+              backgroundColor: "#F4F4F2",
+              borderRadius: 30,
+              paddingVertical: 15,
+              paddingHorizontal: 20
+            },
+            textStyle: { color: "black" }
+          });
+          this.props.navigation.navigate("Login");
+        } else {
+          Toast.show("An error occurred loading data. Click ok to retry", {
+            containerStyle: {
+              backgroundColor: "#F4F4F2",
+              borderRadius: 30,
+              paddingVertical: 15,
+              paddingHorizontal: 20
+            },
+            textStyle: { color: "black" }
+          });
+        }
+      });
+  };
+
+  handleCreateRecordingOperation = () => {
+    this.setState({ loading: true });
+    const {
+      date,
+      montant,
+      numCompteFrom,
+      numCompteTo,
+      name,
+      remarque
+    } = this.state;
+    const data = {
+      date,
+      montant,
+      numCompteFrom,
+      numCompteTo,
+      name,
+      remarque
+    };
+    AsyncStorage.getItem("token").then(res => {
+      axios
+        .post(
+          base_url + "/operation/saveOperationDiverAn",
+          JSON.stringify(data),
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: res
+            }
+          }
+        )
+        .then(res => {
+          this.setState({ loading: false });
+          console.log(res);
+          if (res.data.message) {
+            Toast.show(res.data.message, {
+              containerStyle: {
+                backgroundColor: "#F4F4F2",
+                borderRadius: 30,
+                paddingVertical: 15,
+                paddingHorizontal: 20
+              },
+              textStyle: { color: "black" }
+            });
+          } else {
+            Toast.showSuccess("Successfully created operation");
+          }
+        })
+        .catch(err => {
+          this.setState({ loading: false });
+          if (err.response.status === 401) {
+            Toast.show("Session expired. Please login again", {
+              containerStyle: {
+                backgroundColor: "#F4F4F2",
+                borderRadius: 30,
+                paddingVertical: 15,
+                paddingHorizontal: 20
+              },
+              textStyle: { color: "black" }
+            });
+            this.props.navigation.navigate("Login");
+          } else {
+            Toast.show("An error occurred loading data. Click ok to retry", {
+              containerStyle: {
+                backgroundColor: "#F4F4F2",
+                borderRadius: 30,
+                paddingVertical: 15,
+                paddingHorizontal: 20
+              },
+              textStyle: { color: "black" }
+            });
+          }
+        });
     });
   };
-  handleChangeAccount = value => {
-    console.log("Value", value);
-    this.setState({ account: value });
-  };
-  render() {
-    const { date, accountType, amount, account, notice } = this.state;
-    const { navigation } = this.props;
 
+  render() {
+    const {
+      montant,
+      accounts,
+      numCompteFrom,
+      numCompteTo,
+      remarque
+    } = this.state;
+    const { navigation } = this.props;
+    const rtlText = {
+      textAlign: "right",
+      writingDirection: "rtl"
+    };
     return (
-      <Container
-        fluid
-        style={{
-          paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0
-        }}
-      >
+      <Container fluid>
         <MainHeader navigation={navigation} menu={true} />
         <Content>
           <View style={styles.contentWrapper}>
@@ -89,15 +203,23 @@ class RecordingSporadicOperation extends Component {
                   mode="dropdown"
                   style={{ width: undefined }}
                   placeholderStyle={{ color: "#bfc6ea" }}
-                  selectedValue={account}
-                  onValueChange={this.handleChangeAccount}
+                  selectedValue={numCompteFrom}
+                  onValueChange={value =>
+                    this.setState({ numCompteFrom: value })
+                  }
                 >
-                  {accounts.map((accountObj, index) => (
-                    <Picker.Item
-                      label={`${accountObj.name}  (${accountObj.accountNumber})`}
-                      value={accountObj.name}
-                    />
-                  ))}
+                  {accounts &&
+                    accounts.map((accountObj, index) => {
+                      if (index === 0) {
+                        return <Picker.Item label="تحديد" />;
+                      }
+                      return (
+                        <Picker.Item
+                          label={`${accountObj.libelle}  (${accountObj.numAccount})`}
+                          value={accountObj.numAccount}
+                        />
+                      );
+                    })}
                 </Picker>
               </Item>
             </View>
@@ -105,19 +227,19 @@ class RecordingSporadicOperation extends Component {
               <View style={{ flex: 0.5, marginHorizontal: 5 }}>
                 <TextField
                   label="ملاحظة"
-                  value={amount}
-                  onChangeText={value =>
-                    this.setState({ accountNumber: value })
-                  }
+                  value={remarque}
+                  onChangeText={value => this.setState({ remarque: value })}
+                  style={[rtlText]}
+                  labelOffset={{ x0: 90, x1: 140 }}
                 />
               </View>
               <View style={{ flex: 0.5, marginHorizontal: 5 }}>
                 <TextField
                   label="المبلغ"
-                  value={amount}
-                  onChangeText={value =>
-                    this.setState({ accountNumber: value })
-                  }
+                  value={montant}
+                  onChangeText={value => this.setState({ montant: value })}
+                  style={[rtlText]}
+                  labelOffset={{ x0: 100, x1: 150 }}
                 />
               </View>
             </View>
@@ -132,25 +254,33 @@ class RecordingSporadicOperation extends Component {
                   mode="dropdown"
                   style={{ width: undefined }}
                   placeholderStyle={{ color: "#bfc6ea" }}
-                  selectedValue={account}
-                  onValueChange={this.handleChangeAccount}
+                  selectedValue={numCompteTo}
+                  onValueChange={value => this.setState({ numCompteTo: value })}
                 >
-                  {accounts.map((accountObj, index) => (
-                    <Picker.Item
-                      label={`${accountObj.name}  (${accountObj.accountNumber})`}
-                      value={accountObj.name}
-                    />
-                  ))}
+                  {accounts &&
+                    accounts.map((accountObj, index) => {
+                      if (index === 0) {
+                        return <Picker.Item label="تحديد" />;
+                      }
+                      return (
+                        <Picker.Item
+                          label={`${accountObj.libelle}  (${accountObj.numAccount})`}
+                          value={accountObj.numAccount}
+                        />
+                      );
+                    })}
                 </Picker>
               </Item>
             </View>
             <Button
               style={[styles.btnWrapper, { marginTop: 30 }]}
-              disabled={!(accountType && account && notice && amount)}
+              disabled={!(remarque && numCompteFrom && numCompteTo && montant)}
+              onPress={this.handleCreateRecordingOperation}
             >
               <Text style={styles.text}>حفظ</Text>
             </Button>
           </View>
+          {this.state.loading && <Loading />}
         </Content>
       </Container>
     );
@@ -177,8 +307,7 @@ const styles = StyleSheet.create({
   text: { flex: 1, textAlign: "center" },
   btnWrapper: {
     width: "100%",
-    borderRadius: 5,
-    backgroundColor: "#3F51B5"
+    borderRadius: 5
   },
   datePicker: {
     width: "80%",
@@ -190,13 +319,3 @@ const styles = StyleSheet.create({
 });
 
 export default RecordingSporadicOperation;
-
-const accounts = [
-  { name: "Muhammad Amir0", accountNumber: 12312423 },
-  { name: "Muhammad Amir1", accountNumber: 12312423 },
-  { name: "Muhammad Amir2", accountNumber: 12312423 },
-  { name: "Muhammad Amir3", accountNumber: 12312423 },
-  { name: "Muhammad Amir4", accountNumber: 12312423 },
-  { name: "Muhammad Amir5", accountNumber: 12312423 },
-  { name: "Muhammad Amir6", accountNumber: 12312423 }
-];

@@ -1,44 +1,100 @@
 import React, { Component } from "react";
-import { Container, Content, View, Text, DatePicker, Card } from "native-base";
-import { DataTable, Button } from "react-native-paper";
+import {
+  Container,
+  Content,
+  View,
+  Text,
+  DatePicker,
+  Picker,
+  Icon,
+  Item,
+  Button
+} from "native-base";
+
+import { DataTable } from "react-native-paper";
 import MainHeader from "../../../components/Header";
-import { Platform, StatusBar, StyleSheet } from "react-native";
-import { TextField } from "react-native-materialui-textfield";
-import { AsyncStorage } from "react-native";
+import { StyleSheet, AsyncStorage } from "react-native";
+import axios from "axios";
+import { base_url } from "../../../services";
+import Loading from "../../../components/Loading";
+import Toast from "react-native-tiny-toast";
 
 class AccountsStatus extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      data: data,
+      data: null,
+      accounts: null,
       from: new Date(),
       to: new Date(),
       accountNumber: null,
-      showPrint: false
+      showPrint: false,
+      loading: false
     };
   }
   componentDidMount() {
+    this.setState({ loading: true });
     AsyncStorage.getItem("token").then(res => {
       if (!res) {
         this.props.navigation.navigate("Login");
       }
+      this.loadData(res);
     });
   }
+  loadData = res => {
+    axios
+      .get(base_url + "/account/listAllAccountsLigth", {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: res
+        }
+      })
+      .then(res => {
+        this.setState({ accounts: res.data });
+        this.setState({ loading: false });
+      })
+      .catch(err => {
+        this.setState({ loading: false });
+        if (err.response.status === 401) {
+          Toast.show("Session expired. Please login again", {
+            containerStyle: {
+              backgroundColor: "#F4F4F2",
+              borderRadius: 30,
+              paddingVertical: 15,
+              paddingHorizontal: 20
+            },
+            textStyle: { color: "black" }
+          });
+          this.props.navigation.navigate("Login");
+        } else {
+          Toast.show("An error occurred loading data. Click ok to retry", {
+            containerStyle: {
+              backgroundColor: "#F4F4F2",
+              borderRadius: 30,
+              paddingVertical: 15,
+              paddingHorizontal: 20
+            },
+            textStyle: { color: "black" }
+          });
+        }
+      });
+  };
   setToDate(newDate) {
     this.setState({ to: newDate });
   }
   setFromDate(newDate) {
     this.setState({ from: newDate });
   }
+  onChangeAccountType = value => {
+    this.setState({
+      accountNumber: value
+    });
+  };
   render() {
-    const { data, showPrint } = this.state;
+    const { data, showPrint, accountNumber, accounts } = this.state;
     const { navigation } = this.props;
     return (
-      <Container
-        style={{
-          paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0
-        }}
-      >
+      <Container>
         <MainHeader navigation={navigation} menu={true} />
         <Content>
           <View style={styles.contentWrapper}>
@@ -46,9 +102,29 @@ class AccountsStatus extends Component {
               <View>
                 <Text style={styles.title}>لائحة الحسابات</Text>
               </View>
-              <View style={[styles.textField, { width: "80%" }]}>
-                <TextField label="رقم الحساب" />
-              </View>
+              <Item picker last style={{ margin: 0, padding: 0, width: "80%" }}>
+                <Picker
+                  mode="dropdown"
+                  iosIcon={<Icon name="arrow-down" />}
+                  placeholder="رقم الحساب"
+                  placeholderIconColor="red"
+                  selectedValue={accountNumber}
+                  onValueChange={this.onChangeAccountType}
+                >
+                  {accounts &&
+                    accounts.map((accountObj, index) => {
+                      if (index === 0) {
+                        return <Picker.Item label="تحديد" />;
+                      }
+                      return (
+                        <Picker.Item
+                          label={`${accountObj.libelle}  (${accountObj.numAccount})`}
+                          value={accountObj.numAccount}
+                        />
+                      );
+                    })}
+                </Picker>
+              </Item>
               <View style={styles.datePicker}>
                 <DatePicker
                   defaultDate={Date.now()}
@@ -110,14 +186,14 @@ class AccountsStatus extends Component {
                   paddingHorizontal: 0
                 }}
               >
+                <DataTable.Title style={styles.tableItem}>عليه</DataTable.Title>
+                <DataTable.Title style={styles.tableItem}>له</DataTable.Title>
+                <DataTable.Title style={styles.tableItem}>
+                  التفاصيل
+                </DataTable.Title>
                 <DataTable.Title style={styles.tableItem}>
                   التاريخ
                 </DataTable.Title>
-                <DataTable.Title style={styles.tableItem}>
-                  Detail View
-                </DataTable.Title>
-                <DataTable.Title style={styles.tableItem}>له</DataTable.Title>
-                <DataTable.Title style={styles.tableItem}>عليه</DataTable.Title>
               </DataTable.Header>
 
               {data &&
@@ -125,16 +201,16 @@ class AccountsStatus extends Component {
                   return (
                     <DataTable.Row style={{ paddingHorizontal: 0 }}>
                       <DataTable.Cell style={styles.tableItem}>
-                        {tableItem.accountNumber}
-                      </DataTable.Cell>
-                      <DataTable.Cell style={styles.tableItem}>
-                        {tableItem.name}
+                        {tableItem.dateCreated}
                       </DataTable.Cell>
                       <DataTable.Cell style={styles.tableItem}>
                         {tableItem.phone}
                       </DataTable.Cell>
                       <DataTable.Cell style={styles.tableItem}>
-                        {tableItem.dateCreated}
+                        {tableItem.name}
+                      </DataTable.Cell>
+                      <DataTable.Cell style={styles.tableItem}>
+                        {tableItem.accountNumber}
                       </DataTable.Cell>
                     </DataTable.Row>
                   );
@@ -146,10 +222,11 @@ class AccountsStatus extends Component {
                 onPageChange={page => {
                   console.log(page);
                 }}
-                label={`1-6 of ${data.length}`}
+                label={`1-6 of ${data && data.length}`}
               />
             </DataTable>
           </View>
+          {this.state.loading && <Loading />}
         </Content>
       </Container>
     );
@@ -200,8 +277,7 @@ const styles = StyleSheet.create({
   },
   doubleButton: {
     flex: 0.8,
-    marginHorizontal: 5,
-    backgroundColor: "#3F51B5"
+    marginHorizontal: 5
   }
 });
 

@@ -18,7 +18,7 @@ import { AsyncStorage } from "react-native";
 const datas = [
   {
     name: "الرئيسية",
-    route: "Home",
+    route: "HomeAccountsList",
     icon: "compass",
     key: 0,
     types: null
@@ -146,11 +146,12 @@ class SideBar extends Component {
           style={{ flex: 1, backgroundColor: "#fff", paddingTop: 40 }}
         >
           <View>
-            {datas.map(data => {
+            {datas.map((data, index) => {
               return [
                 <Ripple
                   rippleDuration={700}
                   onPress={() => this.handleNavClick(data)}
+                  key={index}
                 >
                   <ListItem button noBorder>
                     <Left>
@@ -192,14 +193,14 @@ class SideBar extends Component {
                 </Ripple>,
                 data.types &&
                   data.key === this.state.open &&
-                  data.types.map(type => {
-                    console.log("Hello");
+                  data.types.map((type, index) => {
                     return (
                       <Ripple
                         rippleDuration={700}
                         onPress={() =>
                           this.props.navigation.navigate(type.route)
                         }
+                        key={index}
                       >
                         <ListItem button noBorder>
                           <Left>

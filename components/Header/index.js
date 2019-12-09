@@ -1,7 +1,6 @@
 import React, { Component } from "react";
-import { View, Header, Title, Content, Body, Text } from "native-base";
-import { Appbar } from "react-native-paper";
-import { StyleSheet } from "react-native";
+import { View, Body, Title, Header } from "native-base";
+import { StyleSheet, StatusBar } from "react-native";
 import MaterialIcon from "react-native-vector-icons/MaterialCommunityIcons";
 import FontIcon from "react-native-vector-icons/FontAwesome";
 import Ripple from "react-native-material-ripple";
@@ -10,11 +9,13 @@ class MainHeader extends Component {
   render() {
     return (
       <View style={styles.container}>
-        <Appbar
+        <Header
           style={[
             styles.header,
             {
-              backgroundColor: "#3F51B5"
+              backgroundColor: "#3F51B5",
+              height: 75,
+              paddingTop: StatusBar.currentHeight
             }
           ]}
         >
@@ -39,7 +40,7 @@ class MainHeader extends Component {
             </View>
           </View>
           <Body>
-            <Text style={styles.title}>{this.props.title}</Text>
+            <Title>{this.props.title}</Title>
           </Body>
           <View style={styles.right}>
             <Ripple
@@ -54,7 +55,7 @@ class MainHeader extends Component {
               <MaterialIcon name="menu" color={"white"} size={24} />
             </Ripple>
           </View>
-        </Appbar>
+        </Header>
       </View>
     );
   }
@@ -86,9 +87,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center"
-  },
-  title: {
-    fontSize: 20
   }
 });
 export default MainHeader;

@@ -1,35 +1,89 @@
 import React, { Component } from "react";
-import { Container, Content, View, Text } from "native-base";
+import {
+  Container,
+  Content,
+  View,
+  Text,
+  Picker,
+  Icon,
+  Item
+} from "native-base";
 import { DataTable } from "react-native-paper";
 import MainHeader from "../../../components/Header";
-import {Platform, StatusBar, StyleSheet} from "react-native";
-import { TextField } from "react-native-materialui-textfield";
-import { AsyncStorage } from "react-native";
+import { StyleSheet, AsyncStorage } from "react-native";
+import axios from "axios";
+import { base_url } from "../../../services";
+import Loading from "../../../components/Loading";
+import Toast from "react-native-tiny-toast";
 
 class ArchiveAccounts extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      data: data
+      data: null,
+      accounts: null,
+      accountNumber: null,
+      loading: false
     };
   }
   componentDidMount() {
+    this.setState({ loading: true });
     AsyncStorage.getItem("token").then(res => {
       if (!res) {
         this.props.navigation.navigate("Login");
       }
+      this.loadData(res);
     });
   }
+  loadData = res => {
+    axios
+      .get(base_url + "/account/listAllAccountsLigth", {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: res
+        }
+      })
+      .then(res => {
+        this.setState({ accounts: res.data });
+        this.setState({ loading: false });
+      })
+      .catch(err => {
+        this.setState({ loading: false });
+        if (err.response.status === 401) {
+          Toast.show("Session expired. Please login again", {
+            containerStyle: {
+              backgroundColor: "#F4F4F2",
+              borderRadius: 30,
+              paddingVertical: 15,
+              paddingHorizontal: 20
+            },
+            textStyle: { color: "black" }
+          });
+          this.props.navigation.navigate("Login");
+        } else {
+          Toast.show("An error occurred loading data. Click ok to retry", {
+            containerStyle: {
+              backgroundColor: "#F4F4F2",
+              borderRadius: 30,
+              paddingVertical: 15,
+              paddingHorizontal: 20
+            },
+            textStyle: { color: "black" }
+          });
+        }
+      });
+  };
+  onChangeAccountType = value => {
+    this.setState({
+      accountNumber: value
+    });
+  };
   render() {
-    const { data } = this.state;
-    const {navigation} = this.props
+    const { accounts, accountNumber, data } = this.state;
+    const { navigation } = this.props;
 
     return (
-      <Container
-          style={{
-            paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0
-          }}
-      >
+      <Container>
         <MainHeader navigation={navigation} menu={true} />
         <Content>
           <View style={styles.contentWrapper}>
@@ -37,9 +91,29 @@ class ArchiveAccounts extends Component {
               <View>
                 <Text style={styles.title}>أرشيف الحسابات</Text>
               </View>
-              <View style={[styles.textField, { width: "50%" }]}>
-                <TextField label=" رقم الحساب" />
-              </View>
+              <Item picker last style={{ margin: 0, padding: 0, width: "80%" }}>
+                <Picker
+                  mode="dropdown"
+                  iosIcon={<Icon name="arrow-down" />}
+                  placeholder="رقم الحساب"
+                  placeholderIconColor="red"
+                  selectedValue={accountNumber}
+                  onValueChange={this.onChangeAccountType}
+                >
+                  {accounts &&
+                    accounts.map((accountObj, index) => {
+                      if (index === 0) {
+                        return <Picker.Item label="تحديد" />;
+                      }
+                      return (
+                        <Picker.Item
+                          label={`${accountObj.libelle}  (${accountObj.numAccount})`}
+                          value={accountObj.numAccount}
+                        />
+                      );
+                    })}
+                </Picker>
+              </Item>
             </View>
             <DataTable>
               <DataTable.Header
@@ -51,7 +125,7 @@ class ArchiveAccounts extends Component {
                   التاريخ
                 </DataTable.Title>
                 <DataTable.Title style={styles.tableItem}>
-                  Detail View
+                  التفاصيل
                 </DataTable.Title>
                 <DataTable.Title style={styles.tableItem}>له</DataTable.Title>
                 <DataTable.Title style={styles.tableItem}>عليه</DataTable.Title>
@@ -62,16 +136,16 @@ class ArchiveAccounts extends Component {
                   return (
                     <DataTable.Row style={{ paddingHorizontal: 0 }}>
                       <DataTable.Cell style={styles.tableItem}>
-                        {tableItem.accountNumber}
-                      </DataTable.Cell>
-                      <DataTable.Cell style={styles.tableItem}>
-                        {tableItem.name}
+                        {tableItem.dateCreated}
                       </DataTable.Cell>
                       <DataTable.Cell style={styles.tableItem}>
                         {tableItem.phone}
                       </DataTable.Cell>
                       <DataTable.Cell style={styles.tableItem}>
-                        {tableItem.dateCreated}
+                        {tableItem.name}
+                      </DataTable.Cell>
+                      <DataTable.Cell style={styles.tableItem}>
+                        {tableItem.accountNumber}
                       </DataTable.Cell>
                     </DataTable.Row>
                   );
@@ -83,10 +157,11 @@ class ArchiveAccounts extends Component {
                 onPageChange={page => {
                   console.log(page);
                 }}
-                label={`1-6 of ${data.length}`}
+                label={`1-6 of ${data && data.length}`}
               />
             </DataTable>
           </View>
+          {this.state.loading && <Loading />}
         </Content>
       </Container>
     );
@@ -116,30 +191,3 @@ const styles = StyleSheet.create({
 });
 
 export default ArchiveAccounts;
-
-const data = [
-  {
-    accountNumber: 18932,
-    name: "محمد دلاهى",
-    phone: "32342342",
-    dateCreated: "2-3-2019"
-  },
-  {
-    accountNumber: 18932,
-    name: "محمد دلاهى",
-    phone: "32342342",
-    dateCreated: "2-3-2019"
-  },
-  {
-    accountNumber: 18932,
-    name: "محمد دلاهى",
-    phone: "32342342",
-    dateCreated: "2-3-2019"
-  },
-  {
-    accountNumber: 18932,
-    name: "محمد دلاهى",
-    phone: "32342342",
-    dateCreated: "2-3-2019"
-  }
-];

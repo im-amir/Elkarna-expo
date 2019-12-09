@@ -1,37 +1,77 @@
 import React, { Component } from "react";
-import { Container, Content, View, Text } from "native-base";
+import { Container, Content, View, Text, Button } from "native-base";
 import { DataTable } from "react-native-paper";
 import MainHeader from "../../../components/Header";
-import { Platform, StatusBar, StyleSheet } from "react-native";
+import { StyleSheet, AsyncStorage } from "react-native";
 import Ripple from "react-native-material-ripple";
-import { AsyncStorage } from "react-native";
-import { Button } from "react-native-paper";
+import axios from "axios";
+import { base_url } from "../../../services";
+import Loading from "../../../components/Loading";
+import Toast from "react-native-tiny-toast";
 
 class ClaimsList extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      showPrint: false
+      showPrint: false,
+      data: null,
+      loading: false
     };
   }
   componentDidMount() {
+    this.setState({ loading: true });
     AsyncStorage.getItem("token").then(res => {
       if (!res) {
         this.props.navigation.navigate("Login");
       }
+      this.loadData(res);
     });
   }
+  loadData = res => {
+    axios
+      .get(base_url + "/account/listAllAccountDebit?credit=c", {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: res
+        }
+      })
+      .then(res => {
+        this.setState({ data: res.data });
+        this.setState({ loading: false });
+      })
+      .catch(err => {
+        this.setState({ loading: false });
+        if (err.response.status === 401) {
+          Toast.show("Session expired. Please login again", {
+            containerStyle: {
+              backgroundColor: "#F4F4F2",
+              borderRadius: 30,
+              paddingVertical: 15,
+              paddingHorizontal: 20
+            },
+            textStyle: { color: "black" }
+          });
+          this.props.navigation.navigate("Login");
+        } else {
+          Toast.show("An error occurred loading data. Click ok to retry", {
+            containerStyle: {
+              backgroundColor: "#F4F4F2",
+              borderRadius: 30,
+              paddingVertical: 15,
+              paddingHorizontal: 20
+            },
+            textStyle: { color: "black" }
+          });
+        }
+      });
+  };
 
   render() {
-    const { showPrint } = this.state;
+    const { showPrint, data } = this.state;
     const { navigation } = this.props;
 
     return (
-      <Container
-        style={{
-          paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0
-        }}
-      >
+      <Container>
         <MainHeader navigation={navigation} menu={true} />
         <Content>
           <View style={styles.contentWrapper}>
@@ -63,16 +103,16 @@ class ClaimsList extends Component {
                 style={{
                   marginTop: 20,
                   alignSelf: "center",
-                  width: "80%",
-                  backgroundColor: "#3F51B5"
+                  width: "80%"
                 }}
               >
                 <Text style={styles.text}> افتح الطابعة</Text>
               </Button>
             )}
 
-            <View>{this.renderTable(incomingOperations)}</View>
+            <View>{this.renderTable(data)}</View>
           </View>
+          {this.state.loading && <Loading />}
         </Content>
       </Container>
     );
@@ -86,24 +126,24 @@ class ClaimsList extends Component {
             paddingHorizontal: 0
           }}
         >
-          {tableData.headers.map(header => (
-            <DataTable.Title style={styles.tableItem}>{header}</DataTable.Title>
-          ))}
+          <DataTable.Title style={styles.tableItem}>عليه</DataTable.Title>
+          <DataTable.Title style={styles.tableItem}>الإسم</DataTable.Title>
+          <DataTable.Title style={styles.tableItem}>رقم الحساب</DataTable.Title>
         </DataTable.Header>
 
-        {tableData.data &&
-          (tableData.data.length ? (
-            tableData.data.map((tableItem, index) => {
+        {tableData &&
+          (tableData.length ? (
+            tableData.map((tableItem, index) => {
               return (
                 <DataTable.Row style={{ paddingHorizontal: 0 }}>
                   <DataTable.Cell style={styles.tableItem}>
-                    {tableItem.amount}
+                    {tableItem.balance}
                   </DataTable.Cell>
                   <DataTable.Cell style={styles.tableItem}>
-                    {tableItem.name}
+                    {tableItem.libelle}
                   </DataTable.Cell>
                   <DataTable.Cell style={styles.tableItem}>
-                    {tableItem.on}
+                    {tableItem.numAccount}
                   </DataTable.Cell>
                 </DataTable.Row>
               );
@@ -128,7 +168,7 @@ class ClaimsList extends Component {
           onPageChange={page => {
             console.log(page);
           }}
-          label={`1-6 of ${tableData.data.length}`}
+          label={`1-6 of ${tableData && tableData.length}`}
         />
       </DataTable>
     );
@@ -151,19 +191,3 @@ const styles = StyleSheet.create({
 });
 
 export default ClaimsList;
-
-const incomingOperations = {
-  headers: ["رقم الحساب", "الإسم", "عليه"],
-  data: [
-    {
-      amount: 12133,
-      name: "محمد دلاهى",
-      on: 32323
-    },
-    {
-      amount: 12133,
-      name: "محمد دلاهى",
-      on: 32323
-    }
-  ]
-};

@@ -6,15 +6,18 @@ import {
   Text,
   DatePicker,
   Tabs,
-  Tab
+  Tab,
+  Button
 } from "native-base";
-import { Button } from "react-native-paper";
+
 import { DataTable } from "react-native-paper";
 import MainHeader from "../../../components/Header";
-import { Platform, StatusBar, StyleSheet } from "react-native";
-import { TextField } from "react-native-materialui-textfield";
+import { StyleSheet, AsyncStorage } from "react-native";
+import { TextField } from "react-native-material-textfield";
 import Ripple from "react-native-material-ripple";
-import { AsyncStorage } from "react-native";
+import axios from "axios";
+import { base_url } from "../../../services";
+import Loading from "../../../components/Loading";
 
 class PastOperations extends Component {
   constructor(props) {
@@ -23,16 +26,72 @@ class PastOperations extends Component {
       showPrint: false,
       from: new Date(),
       to: new Date(),
-      accountNumber: null
+      accountNumber: null,
+      data: null,
+      loading: false
     };
   }
   componentDidMount() {
+    this.setState({ loading: true });
     AsyncStorage.getItem("token").then(res => {
       if (!res) {
         this.props.navigation.navigate("Login");
       }
+      this.loadData(res);
     });
   }
+  loadData = res => {
+    axios
+      .get(base_url + "/operation/listTodayAllDailyOpJeson", {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: res
+        }
+      })
+      .then(res => {
+        this.setState({ data: res.data });
+        this.setState({ loading: false });
+      })
+      .catch(err => {
+        this.setState({ loading: false });
+        if (err.response.status === 401) {
+                    Toast.show("Session expired. Please login again", {
+            containerStyle: {
+              backgroundColor: "#F4F4F2",
+              borderRadius: 30,
+              paddingVertical: 15,
+              paddingHorizontal: 20
+            },
+            textStyle: { color: "black" }
+          });
+          this.props.navigation.navigate("Login");
+        } else {
+          if (err.response.status === 500) {
+                      Toast.show("Session expired. Please login again", {
+            containerStyle: {
+              backgroundColor: "#F4F4F2",
+              borderRadius: 30,
+              paddingVertical: 15,
+              paddingHorizontal: 20
+            },
+            textStyle: { color: "black" }
+          });
+            this.props.navigation.navigate("Login");
+          } else {
+            console.log(err);
+                      Toast.show("An error occurred loading data. Click ok to retry", {
+            containerStyle: {
+              backgroundColor: "#F4F4F2",
+              borderRadius: 30,
+              paddingVertical: 15,
+              paddingHorizontal: 20
+            },
+            textStyle: { color: "black" }
+          });
+          }
+        }
+      });
+  };
   setToDate(newDate) {
     this.setState({ to: newDate });
   }
@@ -41,15 +100,14 @@ class PastOperations extends Component {
   }
 
   render() {
-    const { showPrint } = this.state;
+    const { showPrint, data } = this.state;
     const { navigation } = this.props;
-
+    const rtlText = {
+      textAlign: "right",
+      writingDirection: "rtl"
+    };
     return (
-      <Container
-        style={{
-          paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0
-        }}
-      >
+      <Container>
         <MainHeader navigation={navigation} menu={true} />
         <Content>
           <View style={styles.contentWrapper}>
@@ -58,7 +116,11 @@ class PastOperations extends Component {
                 <Text style={styles.title}>عمليات الصندوق</Text>
               </View>
               <View style={[styles.textField, { width: "80%" }]}>
-                <TextField label="رقم الحساب" />
+                <TextField
+                  label="رقم الحساب"
+                  style={[rtlText]}
+                  labelOffset={{ x0: 200, x1: 300 }}
+                />
               </View>
               <View style={styles.datePicker}>
                 <DatePicker
@@ -72,7 +134,7 @@ class PastOperations extends Component {
                   placeHolderTextStyle={{
                     color: "darkgrey",
                     width: 250,
-                    textAlign: "left"
+                    textAlign: "right"
                   }}
                   onDateChange={this.setFromDate}
                 />
@@ -89,7 +151,7 @@ class PastOperations extends Component {
                   placeHolderTextStyle={{
                     color: "darkgrey",
                     width: 250,
-                    textAlign: "left"
+                    textAlign: "right"
                   }}
                   onDateChange={this.setToDate}
                 />
@@ -122,7 +184,11 @@ class PastOperations extends Component {
                     <Text style={[styles.text, { color: "white" }]}>تأكيد</Text>
                   </Ripple>
                   <View style={[styles.textField, { width: "50%" }]}>
-                    <TextField label="إسم الحساب  للبحث...*" />
+                    <TextField
+                      label="إسم الحساب  للبحث...*"
+                      style={[rtlText]}
+                      labelOffset={{ x0: 200, x1: 300 }}
+                    />
                   </View>
                 </View>
               )}
@@ -132,13 +198,13 @@ class PastOperations extends Component {
               {!showPrint ? (
                 <Tabs>
                   <Tab heading="داخل">
-                    {this.renderTable(incomingOperations)}
+                    {this.renderTable(data && data.inList)}
                   </Tab>
                   <Tab heading="خارج">
-                    {this.renderTable(outgoingOperations)}
+                    {this.renderTable(data && data.outList)}
                   </Tab>
                   <Tab heading="بيع بالدين">
-                    {this.renderTable(dailyDebtSale)}
+                    {this.renderTable(data && data.crList)}
                   </Tab>
                 </Tabs>
               ) : (
@@ -147,21 +213,21 @@ class PastOperations extends Component {
                     <View>
                       <Text style={styles.tableTitle}>داخل</Text>
                     </View>
-                    <View>{this.renderTable(incomingOperations)}</View>
+                    <View>{this.renderTable(data && data.inList)}</View>
                   </View>
 
                   <View style={styles.tableWrapper}>
                     <View>
                       <Text style={styles.tableTitle}>خارج</Text>
                     </View>
-                    <View>{this.renderTable(outgoingOperations)}</View>
+                    <View>{this.renderTable(data && data.outList)}</View>
                   </View>
 
                   <View style={styles.tableWrapper}>
                     <View>
                       <Text style={styles.tableTitle}>بيع بالدين</Text>
                     </View>
-                    <View>{this.renderTable(dailyDebtSale)}</View>
+                    <View>{this.renderTable(data && data.crList)}</View>
                   </View>
                 </View>
               )}
@@ -173,14 +239,14 @@ class PastOperations extends Component {
                     marginTop: 20,
                     alignSelf: "center",
                     width: "80%",
-                    backgroundColor: "#3F51B5"
-                  }}
+                }}
                 >
                   <Text style={styles.text}> افتح الطابعة</Text>
                 </Button>
               )}
             </View>
           </View>
+          {this.state.loading && <Loading />}
         </Content>
       </Container>
     );
@@ -194,30 +260,34 @@ class PastOperations extends Component {
             paddingHorizontal: 0
           }}
         >
-          {tableData.headers.map(header => (
-            <DataTable.Title style={styles.tableItem}>{header}</DataTable.Title>
-          ))}
+          <DataTable.Title style={styles.tableItem}>التفاصيل</DataTable.Title>
+          <DataTable.Title style={styles.tableItem}>المبلغ</DataTable.Title>
+          <DataTable.Title style={styles.tableItem}>
+            نوعية الحساب
+          </DataTable.Title>
+          <DataTable.Title style={styles.tableItem}>الإسم</DataTable.Title>
+          <DataTable.Title style={styles.tableItem}>التاريخ</DataTable.Title>
         </DataTable.Header>
 
-        {tableData.data &&
-          (tableData.data.length ? (
-            tableData.data.map((tableItem, index) => {
+        {tableData &&
+          (tableData.length ? (
+            tableData.map((tableItem, index) => {
               return (
                 <DataTable.Row style={{ paddingHorizontal: 0 }}>
                   <DataTable.Cell style={styles.tableItem}>
-                    {tableItem.date}
+                    {tableItem.type}
                   </DataTable.Cell>
                   <DataTable.Cell style={styles.tableItem}>
-                    {tableItem.detail}
+                    {tableItem.montantCredit}
                   </DataTable.Cell>
                   <DataTable.Cell style={styles.tableItem}>
-                    {tableItem.amount}
-                  </DataTable.Cell>
-                  <DataTable.Cell style={styles.tableItem}>
-                    {tableItem.accountType}
+                    {tableItem.remarque}
                   </DataTable.Cell>
                   <DataTable.Cell style={styles.tableItem}>
                     {tableItem.name}
+                  </DataTable.Cell>
+                  <DataTable.Cell style={styles.tableItem}>
+                    {tableItem.dateOperation}
                   </DataTable.Cell>
                 </DataTable.Row>
               );
@@ -242,7 +312,7 @@ class PastOperations extends Component {
           onPageChange={page => {
             console.log(page);
           }}
-          label={`1-6 of ${tableData.data.length}`}
+          label={`1-6 of ${tableData && tableData.length}`}
         />
       </DataTable>
     );
@@ -264,8 +334,8 @@ const styles = StyleSheet.create({
   text: { flex: 1, textAlign: "center", color: "white" },
   btnWrapper: {
     width: "100%",
-    borderRadius: 5
-  },
+    borderRadius: 5,
+},
   tableItem: {
     justifyContent: "center"
   },
@@ -299,8 +369,8 @@ const styles = StyleSheet.create({
   },
   doubleButton: {
     flex: 0.8,
-    marginHorizontal: 5
-  },
+    marginHorizontal: 5,
+},
   tableWrapper: {
     marginVertical: 20
   },
@@ -312,31 +382,3 @@ const styles = StyleSheet.create({
 });
 
 export default PastOperations;
-
-const incomingOperations = {
-  headers: ["التاريخ", "الإسم", "نوعية الحساب", "المبلغ", "التفاصيل"],
-  data: [
-    {
-      date: "2-3-2019",
-      detail: "Hello",
-      amount: 12133,
-      accountType: "Hello",
-      name: "محمد دلاهى"
-    },
-    {
-      date: "2-3-2019",
-      detail: "Hello",
-      amount: 12133,
-      accountType: "Hello",
-      name: "محمد دلاهى"
-    }
-  ]
-};
-const outgoingOperations = {
-  headers: ["التاريخ", "الإسم", "نوعية الحساب", "المبلغ", "التفاصيل"],
-  data: []
-};
-const dailyDebtSale = {
-  headers: ["التاريخ", "الحساب", "المبلغ", "التفاصيل"],
-  data: []
-};

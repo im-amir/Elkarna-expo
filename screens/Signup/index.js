@@ -1,12 +1,11 @@
 import React, { Component } from "react";
-import { Container, View, Text, Content } from "native-base";
-import { Image, Platform, StatusBar, StyleSheet } from "react-native";
-import { TextField } from "react-native-materialui-textfield";
+import { Container, View, Text, Content, Button } from "native-base";
+
+import { Image, StyleSheet, AsyncStorage } from "react-native";
+import { TextField } from "react-native-material-textfield";
 import Header from "../../components/Header";
 import Logo from "../../assets/logo-dark.png";
-import { Button } from "react-native-paper";
 import axios from "axios";
-import { AsyncStorage } from "react-native";
 
 class Signup extends Component {
   constructor(props) {
@@ -57,13 +56,12 @@ class Signup extends Component {
   render() {
     const { navigation } = this.props;
     const { name, accountNumber, tel, username, password } = this.state;
+    const rtlText = {
+      textAlign: "right",
+      writingDirection: "rtl"
+    };
     return (
-      <Container
-        fluid
-        style={{
-          paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0
-        }}
-      >
+      <Container fluid>
         <Header navigation={navigation} backPath="Home" />
         <Content style={styles.content}>
           <View style={styles.loginCard}>
@@ -74,6 +72,8 @@ class Signup extends Component {
                 label="اسم"
                 value={name}
                 onChangeText={value => this.setState({ name: value })}
+                style={[rtlText]}
+                labelOffset={{ x0: 200, x1: 300 }}
               />
             </View>
             <View style={styles.textField}>
@@ -81,6 +81,8 @@ class Signup extends Component {
                 label="رقم حساب"
                 value={accountNumber}
                 onChangeText={value => this.setState({ accountNumber: value })}
+                style={[rtlText]}
+                labelOffset={{ x0: 200, x1: 300 }}
               />
             </View>
             <View style={styles.textField}>
@@ -88,6 +90,8 @@ class Signup extends Component {
                 label="هاتف"
                 value={tel}
                 onChangeText={value => this.setState({ tel: value })}
+                style={[rtlText]}
+                labelOffset={{ x0: 200, x1: 300 }}
               />
             </View>
             <View style={styles.textField}>
@@ -95,6 +99,8 @@ class Signup extends Component {
                 label="المستخدم"
                 value={username}
                 onChangeText={value => this.setState({ username: value })}
+                style={[rtlText]}
+                labelOffset={{ x0: 200, x1: 300 }}
               />
             </View>
             <View style={styles.textField}>
@@ -102,6 +108,8 @@ class Signup extends Component {
                 label="كلمة السر"
                 secureTextEntry
                 onChangeText={value => this.setState({ password: value })}
+                style={[rtlText]}
+                labelOffset={{ x0: 200, x1: 300 }}
               />
             </View>
             <Button
@@ -151,8 +159,7 @@ const styles = StyleSheet.create({
     width: "100%",
     borderRadius: 5,
     marginTop: 60,
-    backgroundColor: "#3F51B5"
-  },
-  text: { flex: 1, textAlign: "center" }
+},
+  text: { flex: 1, textAlign: "center"}
 });
 export default Signup;

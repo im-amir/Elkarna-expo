@@ -1,10 +1,9 @@
 import React, { Component } from "react";
 import { View, Container, Content } from "native-base";
-import { Platform, StatusBar, StyleSheet } from "react-native";
+import { StyleSheet, AsyncStorage } from "react-native";
 import MainHeader from "../../components/Header";
 import SmallCard from "../../components/SmallCard";
 import LargeCard from "../../components/LargeCard";
-import { AsyncStorage } from "react-native";
 
 const cards = [
   {
@@ -44,17 +43,12 @@ class Home extends Component {
   render() {
     const { navigation } = this.props;
     return (
-      <Container
-        fluid
-        style={{
-          paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0
-        }}
-      >
+      <Container>
         <MainHeader navigation={navigation} menu={true} />
         <Content style={{ flex: 1 }}>
           <View style={styles.cardsWrapper}>
             {cards.length &&
-              cards.map(card => {
+              cards.map((card, index) => {
                 return (
                   <SmallCard
                     title={card.title}
@@ -62,6 +56,7 @@ class Home extends Component {
                     number={card.number}
                     route={card.route}
                     navigation={navigation}
+                    key={index}
                   />
                 );
               })}
@@ -72,12 +67,14 @@ class Home extends Component {
               icon={"shopping-cart"}
               route="ClaimsList"
               navigation={navigation}
+              key={10}
             />
             <LargeCard
               title="لائحة المديونون"
               icon={"back-in-time"}
               route="DebtorsList"
               navigation={navigation}
+              key={11}
             />
           </View>
         </Content>
